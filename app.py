@@ -11,10 +11,10 @@ st.set_page_config(page_title="BRSR Practice Board", page_icon="📊", layout="w
 st.markdown("""
 <style>
   /* Sidebar styling */
-  div[data-testid="stSidebar"] {background-color:#16325c;}
-  div[data-testid="stSidebar"] * {color:#e8ecf5 !important;}
-  div[data-testid="stSidebar"] div[role="radiogroup"] label {font-size:15px; padding:10px;}
-  div[data-testid="stSidebar"] div[role="radiogroup"] label:hover {background-color:#24466e;}
+ section[data-testid="stSidebar"] {background-color:#16325c;}
+ section[data-testid="stSidebar"] * {color:#e8ecf5 !important;}
+ section[data-testid="stSidebar"] div[role="radiogroup"] label {font-size:15px; padding:10px;}
+ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {background-color:#24466e;}
 
   /* Main header styling */
   .main-header {
@@ -80,7 +80,9 @@ def detect_shape(df):
     elif numeric: shape = "cross"
     else: shape = "unknown"
 
-    strs = [c for c in df.columns if c not in numeric and c not in year_hdr_cols and c != year_col]
+    # strs = [c for c in df.columns if c not in numeric and c not in year_hdr_cols and c != year_col]
+    strs = [c for c in df.columns if c not in numeric and c not in year_hdr_cols and c != year_col
+            and not RANKISH.search(str(c)) and df[c].dtype == object]
     nu = sorted(strs, key=lambda c: df[c].nunique(), reverse=True)
     entity = nu[0] if nu else None
     category = None
@@ -147,15 +149,20 @@ def exec_cross(df, entity, category, numeric):
 
     if category:
         piv = d.groupby(category)[meas].mean()
-        st.plotly_chart(px.imshow(piv, aspect="auto", color_continuous_scale="RdYlGn", text_auto=".2f",
+        st.plotly_chart(px.imshow(piv, aspect="auto", color_continuous_scale="RdYlGn", text_auto=".4~f",
                                   title=f"{category} × measures (mean)"), use_container_width=True)
 
 def exec_long(df, yc, numeric, entity):
     if not numeric:
         st.warning("No numeric measure columns found."); return
 
-    ycol = st.selectbox("Value column", numeric, index=0)
-    d2 = df.assign(Year=df[yc].astype(str))
+        ycol = st.selectbox("Value column", numeric, index=0)
+        d2 = df.assign(Year=df[yc].astype(str))
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Rows", f"{len(d2):,}")
+        c2.metric("Periods", f"{d2['Year'].nunique():,}")
+        c3.metric(f"Mean {ycol}", f"{d2[ycol].mean():,.2f}")
+        c4.metric("Coverage", f"{(1 - d2[ycol].isna().mean()) * 100:.0f}%")
 
     if entity is None:
         agg = d2.groupby("Year")[ycol].mean().reset_index(name="Value")
@@ -169,7 +176,7 @@ def exec_long(df, yc, numeric, entity):
 
     st.plotly_chart(px.line(dd, x="Year", y=ycol, color=lab, markers=True, title=f"{ycol} — top 6 {lab}"), use_container_width=True)
     piv = dd.pivot_table(index=lab, columns="Year", values=ycol, aggfunc="mean")
-    st.plotly_chart(px.imshow(piv, aspect="auto", color_continuous_scale="RdYlGn", text_auto=".3g",
+    st.plotly_chart(px.imshow(piv, aspect="auto", color_continuous_scale="RdYlGn", text_auto=".4~f",
                               title=f"Heat map: {lab} × year"), use_container_width=True)
 
 def sample_df():
